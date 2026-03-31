@@ -137,6 +137,10 @@ export default function Dashboard() {
             Dashboard
         </h1>
 
+        <h2>Winnings</h2>
+        <p>Total Won: ₹0</p>
+        <p>Status: Pending</p>
+
         <button
             onClick={() => window.location.href = '/admin'}
             className="bg-gray-700 px-4 py-2 rounded-full hover:bg-gray-600 transition"
