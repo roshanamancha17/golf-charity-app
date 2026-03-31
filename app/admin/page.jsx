@@ -8,6 +8,7 @@ export default function Admin() {
   const [charityName, setCharityName] = useState('');
   const [charityDesc, setCharityDesc] = useState('');
   const [latestDraw, setLatestDraw] = useState(null);
+  const [results, setResults] = useState([]);
 
   useEffect(() => {
     fetchUsers();
@@ -28,6 +29,8 @@ export default function Admin() {
       .single();
 
     setLatestDraw(data);
+
+    if (data) calculateResults(data.numbers);
   };
 
   const addCharity = async () => {
@@ -37,7 +40,40 @@ export default function Admin() {
       { name: charityName, description: charityDesc },
     ]);
 
-    alert('Added!');
+    alert('Charity added!');
+    setCharityName('');
+    setCharityDesc('');
+  };
+
+  // 🎯 CALCULATE MATCHES
+  const calculateResults = async (drawNumbers) => {
+    const { data: scores } = await supabase.from('scores').select('*');
+
+    const grouped = {};
+
+    scores.forEach((s) => {
+      if (!grouped[s.user_id]) grouped[s.user_id] = [];
+      grouped[s.user_id].push(s.score);
+    });
+
+    const resultsArray = [];
+
+    Object.keys(grouped).forEach((userId) => {
+      const userScores = grouped[userId];
+
+      let matchCount = 0;
+
+      drawNumbers.forEach((num) => {
+        if (userScores.includes(num)) matchCount++;
+      });
+
+      resultsArray.push({
+        userId,
+        matchCount,
+      });
+    });
+
+    setResults(resultsArray);
   };
 
   const generateDraw = async () => {
@@ -49,7 +85,11 @@ export default function Admin() {
     }
 
     await supabase.from('draws').insert([{ numbers }]);
-    fetchLatestDraw();
+
+    setLatestDraw({ numbers });
+
+    // 🔥 calculate results immediately
+    calculateResults(numbers);
   };
 
   return (
@@ -82,9 +122,40 @@ export default function Admin() {
             </div>
           </div>
         )}
+
+        {/* RESULTS */}
+        {results.length > 0 && (
+          <div className="mt-6">
+            <h3 className="text-lg mb-2">Results</h3>
+
+            {results.map((r, i) => {
+              const userEmail =
+                users.find((u) => u.id === r.userId)?.email || r.userId;
+
+              return (
+                <div
+                  key={i}
+                  className="bg-gray-900 p-3 mb-2 rounded border border-gray-700"
+                >
+                  {userEmail} | Matches: {r.matchCount}
+
+                  {r.matchCount === 3 && (
+                    <span className="text-green-400"> 🎉 Small Win</span>
+                  )}
+                  {r.matchCount === 4 && (
+                    <span className="text-yellow-400"> 🔥 Big Win</span>
+                  )}
+                  {r.matchCount === 5 && (
+                    <span className="text-pink-400"> 💰 JACKPOT</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      {/* CHARITY */}
+      {/* ADD CHARITY */}
       <div className="bg-gray-800/60 p-6 rounded-2xl mb-6">
         <h2 className="text-xl mb-3">Add Charity</h2>
 
@@ -117,7 +188,7 @@ export default function Admin() {
         {users.map((u) => (
           <div
             key={u.id}
-            className="bg-gray-900 p-3 mb-2 rounded-lg border border-gray-700"
+            className="bg-gray-900 p-3 mb-2 rounded border border-gray-700"
           >
             {u.email} | {u.contribution_percent}%
           </div>

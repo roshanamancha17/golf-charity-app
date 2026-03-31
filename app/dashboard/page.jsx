@@ -13,6 +13,7 @@ export default function Dashboard() {
   const [percent, setPercent] = useState(10);
 
   const [latestDraw, setLatestDraw] = useState(null);
+  const [subscription, setSubscription] = useState(null);
 
   useEffect(() => {
     getUser();
@@ -20,10 +21,36 @@ export default function Dashboard() {
     fetchLatestDraw();
   }, []);
 
+  // 🔐 GET USER + CHECK SUBSCRIPTION
   const getUser = async () => {
     const { data } = await supabase.auth.getUser();
-    setUser(data.user);
-    if (data.user) fetchScores(data.user.id);
+
+    if (data.user) {
+      setUser(data.user);
+
+      const { data: sub } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', data.user.id)
+        .single();
+
+      setSubscription(sub);
+
+      // 🔥 VALIDATION (expiry check)
+      if (sub?.subscription_end) {
+        const now = new Date();
+        if (new Date(sub.subscription_end) < now) {
+          await supabase
+            .from('users')
+            .update({ subscription_status: 'inactive' })
+            .eq('id', data.user.id);
+
+          setSubscription({ ...sub, subscription_status: 'inactive' });
+        }
+      }
+
+      fetchScores(data.user.id);
+    }
   };
 
   const fetchScores = async (userId) => {
@@ -52,9 +79,44 @@ export default function Dashboard() {
     setLatestDraw(data);
   };
 
+  // 💳 SUBSCRIPTION ACTIVATION
+  const activateSubscription = async (type) => {
+    const now = new Date();
+    let endDate;
+
+    if (type === 'monthly') {
+      endDate = new Date();
+      endDate.setMonth(now.getMonth() + 1);
+    } else {
+      endDate = new Date();
+      endDate.setFullYear(now.getFullYear() + 1);
+    }
+
+    await supabase.from('users').upsert([
+      {
+        id: user.id,
+        email: user.email,
+        plan: type,
+        subscription_status: 'active',
+        subscription_end: endDate,
+      },
+    ]);
+
+    alert('Subscription activated!');
+    getUser();
+  };
+
+  // 🚫 ACCESS CONTROL
+  const isSubscribed = subscription?.subscription_status === 'active';
+
   const addScore = async () => {
+    if (!isSubscribed) {
+      alert('Please subscribe first');
+      return;
+    }
+
     if (!score || score < 1 || score > 45) {
-      alert('Enter valid score (1–45)');
+      alert('Enter valid score');
       return;
     }
 
@@ -84,11 +146,6 @@ export default function Dashboard() {
   };
 
   const saveCharity = async () => {
-    if (!selectedCharity) {
-      alert('Select charity');
-      return;
-    }
-
     await supabase.from('users').upsert([
       {
         id: user.id,
@@ -102,6 +159,11 @@ export default function Dashboard() {
   };
 
   const generateDraw = async () => {
+    if (!isSubscribed) {
+      alert('Subscribe to participate');
+      return;
+    }
+
     const numbers = [];
 
     while (numbers.length < 5) {
@@ -115,13 +177,7 @@ export default function Dashboard() {
 
   const checkMatches = (drawNumbers, userScores) => {
     const scoreValues = userScores.map((s) => s.score);
-
-    let matchCount = 0;
-    drawNumbers.forEach((num) => {
-      if (scoreValues.includes(num)) matchCount++;
-    });
-
-    return matchCount;
+    return drawNumbers.filter((n) => scoreValues.includes(n)).length;
   };
 
   const matchCount =
@@ -130,142 +186,123 @@ export default function Dashboard() {
       : 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-800 text-white p-10">
-      
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 text-transparent bg-clip-text">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black text-white flex justify-center">
+        <div className="w-full max-w-5xl p-6">
+
+        {/* HEADER */}
+        <div className="flex justify-between items-center mb-8">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 text-transparent bg-clip-text">
             Dashboard
-        </h1>
+            </h1>
 
-
-
-        <button
-            onClick={() => window.location.href = '/admin'}
+            <button
+            onClick={() => (window.location.href = '/admin')}
             className="bg-gray-700 px-4 py-2 rounded-full hover:bg-gray-600 transition"
-        >
+            >
             👤 Profile
-        </button>
+            </button>
         </div>
 
-      {user && (
-        <p className="mb-6 text-gray-300">Welcome: {user.email}</p>
-      )}
-        <h2>Winnings</h2>
-        <p>Total Won: ₹0</p>
-        <p>Status: Pending</p>
+        {/* SUBSCRIPTION */}
+        <div className="bg-gray-800/60 backdrop-blur p-6 rounded-2xl shadow mb-6">
+            <h2 className="text-xl mb-3 font-semibold">Subscription</h2>
 
-      {/* SCORE INPUT */}
-      <div className="bg-gray-800/60 backdrop-blur p-6 rounded-2xl shadow-lg mb-6">
-        <h2 className="text-xl mb-3 font-semibold">Add Score</h2>
-
-        <div className="flex gap-3">
-          <input
-            type="number"
-            value={score}
-            onChange={(e) => setScore(e.target.value)}
-            placeholder="1–45"
-            className="p-2 rounded bg-gray-900 border border-gray-700 focus:ring-2 focus:ring-purple-500 outline-none"
-          />
-
-          <button
-            onClick={addScore}
-            className="bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-2 rounded hover:opacity-90 transition"
-          >
-            Add Score
-          </button>
-        </div>
-      </div>
-
-      {/* SCORES LIST */}
-      <div className="bg-gray-800/60 backdrop-blur p-6 rounded-2xl shadow-lg mb-6">
-        <h2 className="text-xl mb-3 font-semibold">Your Scores</h2>
-
-        {scores.map((s) => (
-          <div
-            key={s.id}
-            className="bg-gray-900 p-3 mb-2 rounded flex justify-between hover:bg-gray-700 transition"
-          >
-            <span>Score: {s.score}</span>
-            <span>{new Date(s.played_at).toLocaleDateString()}</span>
-          </div>
-        ))}
-      </div>
-
-      {/* CHARITY */}
-      <div className="bg-gray-800/60 backdrop-blur p-6 rounded-2xl shadow-lg mb-6">
-        <h2 className="text-xl mb-3 font-semibold">Support Charity ❤️ (in %)</h2>
-
-        <select
-          className="p-2 rounded bg-gray-900 border border-gray-700 mb-3 w-full"
-          onChange={(e) => setSelectedCharity(e.target.value)}
-        >
-          <option value="">Select Charity</option>
-          {charities.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-
-        <input
-          type="number"
-          value={percent}
-          min={10}
-          max={100}
-          onChange={(e) => setPercent(e.target.value)}
-          className="p-2 rounded bg-gray-900 border border-gray-700 mb-3 w-full"
-        />
-
-        <button
-          onClick={saveCharity}
-          className="bg-green-500 px-4 py-2 rounded hover:bg-green-600 transition"
-        >
-          Save Preference
-        </button>
-      </div>
-
-      {/* DRAW */}
-      <div className="bg-gray-800/60 backdrop-blur p-6 rounded-2xl shadow-lg">
-        <h2 className="text-xl mb-3 font-semibold">Monthly Draw 🎲</h2>
-
-        <button
-          onClick={generateDraw}
-          className="bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-2 rounded mb-4 hover:opacity-90 transition"
-        >
-          Generate Draw
-        </button>
-
-        {latestDraw && (
-          <div className="mb-4">
-            <p className="mb-2">Draw Numbers:</p>
+            <p className="text-gray-300">
+            Status: <span className="text-white">{subscription?.subscription_status || 'inactive'}</span>
+            </p>
+            <p className="text-gray-300 mb-4">
+            Plan: <span className="text-white">{subscription?.plan || 'none'}</span>
+            </p>
 
             <div className="flex gap-3">
-              {latestDraw.numbers.map((num, i) => (
-                <div
-                  key={i}
-                  className="w-10 h-10 flex items-center justify-center rounded-full bg-gradient-to-r from-purple-500 to-pink-500 font-bold shadow"
-                >
-                  {num}
-                </div>
-              ))}
+            <button
+                onClick={() => activateSubscription('monthly')}
+                className="bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-2 rounded hover:opacity-90 transition"
+            >
+                Monthly
+            </button>
+
+            <button
+                onClick={() => activateSubscription('yearly')}
+                className="bg-gradient-to-r from-pink-500 to-purple-500 px-4 py-2 rounded hover:opacity-90 transition"
+            >
+                Yearly
+            </button>
             </div>
-          </div>
-        )}
-
-        <div>
-          <p className="text-lg">Matches: {matchCount}</p>
-
-          {matchCount === 3 && (
-            <p className="text-green-400 font-semibold">🎉 Small Win</p>
-          )}
-          {matchCount === 4 && (
-            <p className="text-yellow-400 font-semibold">🔥 Big Win</p>
-          )}
-          {matchCount === 5 && (
-            <p className="text-pink-400 font-bold text-xl">💰 JACKPOT</p>
-          )}
         </div>
-      </div>
+
+        {/* SCORE */}
+        <div className="bg-gray-800/60 backdrop-blur p-6 rounded-2xl shadow mb-6">
+            <h2 className="text-xl mb-3 font-semibold">Add Score</h2>
+
+            <div className="flex gap-3">
+            <input
+                type="number"
+                value={score}
+                onChange={(e) => setScore(e.target.value)}
+                placeholder="1–45"
+                className="flex-1 p-2 rounded bg-gray-900 border border-gray-700 focus:ring-2 focus:ring-purple-500 outline-none"
+            />
+
+            <button
+                onClick={addScore}
+                className="bg-purple-500 px-4 py-2 rounded hover:bg-purple-600 transition"
+            >
+                Add
+            </button>
+            </div>
+        </div>
+
+        {/* SCORES */}
+        <div className="bg-gray-800/60 backdrop-blur p-6 rounded-2xl shadow mb-6">
+            <h2 className="text-xl mb-3 font-semibold">Your Scores</h2>
+
+            {scores.map((s) => (
+            <div
+                key={s.id}
+                className="bg-gray-900 p-3 mb-2 rounded flex justify-between hover:bg-gray-700 transition"
+            >
+                <span>{s.score}</span>
+                <span>{new Date(s.played_at).toLocaleDateString()}</span>
+            </div>
+            ))}
+        </div>
+
+        {/* DRAW */}
+        <div className="bg-gray-800/60 backdrop-blur p-6 rounded-2xl shadow">
+            <h2 className="text-xl mb-3 font-semibold">Monthly Draw 🎲</h2>
+
+            <button
+            onClick={generateDraw}
+            className="bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-2 rounded mb-4 hover:opacity-90 transition"
+            >
+            Generate Draw
+            </button>
+
+            {latestDraw && (
+            <div className="mb-4">
+                <p className="mb-2 text-gray-300">Draw Numbers</p>
+
+                <div className="flex gap-3">
+                {latestDraw.numbers.map((n, i) => (
+                    <div
+                    key={i}
+                    className="w-10 h-10 flex items-center justify-center rounded-full bg-gradient-to-r from-purple-500 to-pink-500 font-bold"
+                    >
+                    {n}
+                    </div>
+                ))}
+                </div>
+            </div>
+            )}
+
+            <p className="text-lg">Matches: {matchCount}</p>
+
+            {matchCount === 3 && <p className="text-green-400">🎉 Small Win</p>}
+            {matchCount === 4 && <p className="text-yellow-400">🔥 Big Win</p>}
+            {matchCount === 5 && <p className="text-pink-400 text-xl">💰 Jackpot</p>}
+        </div>
+        </div>
     </div>
-  );
+    );
 }
