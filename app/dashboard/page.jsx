@@ -137,9 +137,7 @@ export default function Dashboard() {
             Dashboard
         </h1>
 
-        <h2>Winnings</h2>
-        <p>Total Won: ₹0</p>
-        <p>Status: Pending</p>
+
 
         <button
             onClick={() => window.location.href = '/admin'}
@@ -152,6 +150,9 @@ export default function Dashboard() {
       {user && (
         <p className="mb-6 text-gray-300">Welcome: {user.email}</p>
       )}
+        <h2>Winnings</h2>
+        <p>Total Won: ₹0</p>
+        <p>Status: Pending</p>
 
       {/* SCORE INPUT */}
       <div className="bg-gray-800/60 backdrop-blur p-6 rounded-2xl shadow-lg mb-6">
