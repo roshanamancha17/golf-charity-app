@@ -11,6 +11,10 @@ export default function Signup() {
 
   const router = useRouter();
 
+  useEffect(() => {
+    document.title = 'Signup';
+    }, []);
+
   const handleSignup = async () => {
     const { error } = await supabase.auth.signUp({
       email,
@@ -67,7 +71,3 @@ export default function Signup() {
     </div>
   );
 }
-
-export const metadata = {
-  title: 'Signup',
-};

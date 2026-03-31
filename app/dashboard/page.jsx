@@ -16,6 +16,10 @@ export default function Dashboard() {
   const [subscription, setSubscription] = useState(null);
 
   useEffect(() => {
+    document.title = 'Dashboard';
+    }, []);
+
+  useEffect(() => {
     getUser();
     fetchCharities();
     fetchLatestDraw();
@@ -306,7 +310,3 @@ export default function Dashboard() {
     </div>
     );
 }
-
-export const metadata = {
-  title: 'Dashboard',
-};

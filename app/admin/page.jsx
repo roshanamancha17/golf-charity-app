@@ -11,6 +11,10 @@ export default function Admin() {
   const [results, setResults] = useState([]);
 
   useEffect(() => {
+    document.title = 'Admin Panel';
+    }, []);
+
+  useEffect(() => {
     fetchUsers();
     fetchLatestDraw();
   }, []);
@@ -197,7 +201,3 @@ export default function Admin() {
     </div>
   );
 }
-
-export const metadata = {
-  title: 'Admin Panel',
-};
