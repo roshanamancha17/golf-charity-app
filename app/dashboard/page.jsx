@@ -15,9 +15,7 @@ export default function Dashboard() {
   const [latestDraw, setLatestDraw] = useState(null);
   const [subscription, setSubscription] = useState(null);
 
-  useEffect(() => {
-    document.title = 'Dashboard';
-    }, []);
+
 
   useEffect(() => {
     getUser();

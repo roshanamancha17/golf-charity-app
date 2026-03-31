@@ -10,9 +10,7 @@ export default function Admin() {
   const [latestDraw, setLatestDraw] = useState(null);
   const [results, setResults] = useState([]);
 
-  useEffect(() => {
-    document.title = 'Admin Panel';
-    }, []);
+
 
   useEffect(() => {
     fetchUsers();

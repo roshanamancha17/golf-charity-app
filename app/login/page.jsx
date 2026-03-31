@@ -11,9 +11,7 @@ export default function Login() {
 
   const router = useRouter();
 
-  useEffect(() => {
-    document.title = 'Login';
-    }, []);
+
 
   const handleLogin = async () => {
     const { error } = await supabase.auth.signInWithPassword({
