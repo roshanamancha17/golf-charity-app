@@ -197,3 +197,7 @@ export default function Admin() {
     </div>
   );
 }
+
+export const metadata = {
+  title: 'Admin Panel',
+};

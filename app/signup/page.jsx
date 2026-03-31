@@ -67,3 +67,7 @@ export default function Signup() {
     </div>
   );
 }
+
+export const metadata = {
+  title: 'Signup',
+};
