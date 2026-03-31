@@ -20,7 +20,7 @@ export default function Signup() {
     });
 
     if (error) alert(error.message);
-    else alert('Signup successful!');
+    else alert('Signup successful! Check your email for the confirmation link.');
   };
 
   return (
